@@ -5,6 +5,8 @@ import os
 from datetime import datetime
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
@@ -116,8 +118,9 @@ def get_feature_difference(item1, item2):
     overlapping_seasons = len(set(item1["Season"]).intersection(set(item2["Season"])))
     return [color_diff, main_category_diff, subcategory_diff, overlapping_seasons]
 
-# Prepare dataset for linear regression using a sample
+# Assume df is your DataFrame
 sample_df = df.sample(n=200, random_state=42)
+
 X_sample = []
 y_sample = []
 
@@ -129,8 +132,38 @@ for idx1, item1 in sample_df.iterrows():
             X_sample.append(feature_diff)
             y_sample.append(similarity_score)
 
+# Splitting the dataset into training and testing sets
 X_train_sample, X_test_sample, y_train_sample, y_test_sample = train_test_split(X_sample, y_sample, test_size=0.2, random_state=42)
-model_sample = LinearRegression().fit(X_train_sample, y_train_sample)
+
+# Normalizing/Standardizing the data
+scaler = StandardScaler()
+X_train_sample_scaled = scaler.fit_transform(X_train_sample)
+X_test_sample_scaled = scaler.transform(X_test_sample)
+
+# Training the model
+model_sample = LinearRegression().fit(X_train_sample_scaled, y_train_sample)
+
+# Making predictions
+y_pred_train = model_sample.predict(X_train_sample_scaled)
+y_pred_test = model_sample.predict(X_test_sample_scaled)
+
+# Evaluating the model
+# Mean Squared Error (MSE)
+mse_train = mean_squared_error(y_train_sample, y_pred_train)
+mse_test = mean_squared_error(y_test_sample, y_pred_test)
+
+# R-squared (R2)
+r2_train = r2_score(y_train_sample, y_pred_train)
+r2_test = r2_score(y_test_sample, y_pred_test)
+
+# Mean Absolute Error (MAE)
+mae_train = mean_absolute_error(y_train_sample, y_pred_train)
+mae_test = mean_absolute_error(y_test_sample, y_pred_test)
+
+# Print the evaluation metrics
+print(f'Training MSE: {mse_train}, Testing MSE: {mse_test}')
+print(f'Training R2: {r2_train}, Testing R2: {r2_test}')
+print(f'Training MAE: {mae_train}, Testing MAE: {mae_test}')
 
 # 5. Functions for Outfit Generation
 base_category_constraints = {
@@ -187,7 +220,7 @@ def generate_url(product_id, folder_path=image_folder):
     return product_id
 
 
-def generate_outfits_regression_v5_urls(reference_item, df, gender, max_outfits=25):
+def generate_outfits_regression_v5_urls(reference_item, df, gender, max_outfits=30):
     base_categories = ["tops", "trousers", "shoes"]
     accessory_categories = ["jewellery", "bags", "caps", "belts", "socks", "bracelets", "eyewear"]
 
@@ -201,6 +234,7 @@ def generate_outfits_regression_v5_urls(reference_item, df, gender, max_outfits=
         chosen_accessories = random.sample(accessory_categories, accessory_count)
         accessories = tuple([generate_url(random.choice(accessory_items[category])["Product ID"]) for category in chosen_accessories])
         outfit = base + accessories
+        accessories[:3]
         outfits.add(outfit)
     return list(outfits)
 
@@ -233,7 +267,7 @@ def display_outfit_combinations(json_path, img_folder= image_folder):
             ncols = 3  # For example, 3 columns: tops, trousers, shoes
             nrows = -(-n // ncols)  # Calculate rows needed
             
-            fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(15, 5 * nrows))
+            fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(10, 3 * nrows))
             
             for ax, item in zip(axs.ravel(), combination):
                 img_path = os.path.join(img_folder, item)
@@ -246,39 +280,12 @@ def display_outfit_combinations(json_path, img_folder= image_folder):
             for ax in axs.ravel()[n:]:
                 fig.delaxes(ax)
                 
+
             plt.tight_layout()
             plt.show()
             print(f"Outfit Combination {idx} displayed above\n")
             
     print("All outfit combinations displayed.")
 
-# Call the function
-display_outfit_combinations("outfit_combinations.json")
 
-
-# def generate_outfits_regression_v5(reference_item, df, gender, max_outfits=25):
-#     base_categories = ["tops", "trousers", "shoes"]
-#     accessory_categories = ["jewellery", "bags", "caps", "belts", "socks", "bracelets", "eyewear"]
-
-#     base_items = get_top_similar_items_regression_fixed_with_constraints(reference_item, df, base_categories, compute_advanced_similarity_v3_updated, gender)
-#     accessory_items = get_top_similar_items_regression_fixed(reference_item, df, accessory_categories, compute_advanced_similarity_v3_updated)
-
-
-#     outfits = set()
-#     while len(outfits) < max_outfits:
-#         base = tuple([random.choice(base_items[category])["Product ID"] for category in base_categories])
-#         accessory_count = random.randint(0, len(accessory_items))
-#         chosen_accessories = random.sample(accessory_categories, accessory_count)
-#         accessories = tuple([random.choice(accessory_items[category])["Product ID"] for category in chosen_accessories])
-#         accessories[:3]
-#         outfit = base + accessories
-#         outfits.add(outfit)
-#     return list(outfits)
-
-
-# # 8. User Interaction
-# subcategory_input = input("Enter a subcategory (e.g., 'Shorts', 'Jeans', 'Shirt'): ")
-# gender_input = input("Select a gender (Men/Women): ")
-# reference_item = df[df["Subcategory"].str.contains(subcategory_input, case=False, na=False)].sample(n=1).iloc[0]
-# outfit_combinations_regression_v5 = generate_outfits_regression_v5(reference_item, df, gender_input)
-# print(outfit_combinations_regression_v5[:3])
+# display_outfit_combinations("outfit_combinations.json")
